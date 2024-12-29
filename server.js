@@ -10,34 +10,54 @@ const io = new Server(server, {
   },
 });
 
-let users = []; // Store connected users
+const connections = []; // Store connected users who are sharing their internet
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Handle "share-internet" event to add users
-  socket.on("share-internet", (userDetails) => {
-    userDetails.id = socket.id; // Add unique socket ID to the user
-    users.push(userDetails); // Add user to the list
-    io.emit("update-users", users); // Broadcast the updated list
-    console.log("Updated Users:", users);
+  // Handle share-internet event
+  socket.on("share-internet", (data) => {
+    const existingConnection = connections.find(
+      (conn) => conn.id === socket.id
+    );
+    if (existingConnection) {
+      // If already sharing, update the existing connection
+      existingConnection.location = data.location;
+      existingConnection.speed = data.speed;
+      existingConnection.uptime = data.uptime;
+      existingConnection.connectionId = data.connectionId;
+    } else {
+      // Otherwise, add a new connection
+      connections.push({
+        id: socket.id,
+        location: data.location,
+        speed: data.speed,
+        uptime: data.uptime,
+        connectionId: data.connectionId,
+      });
+    }
+
+    // Emit the updated list of available connections to all clients
+    io.emit("update-users", connections);
   });
 
-  // Handle connection requests
-  socket.on("connect-to-peer", (peerId) => {
-    const peer = users.find((user) => user.id === peerId);
-    if (peer) {
-      // Notify both peers of the connection
-      io.to(peerId).emit("peer-connected", { peerId: socket.id });
-      socket.emit("peer-connected", { peerId: peerId });
+  // Handle stop-sharing event
+  socket.on("stop-sharing", () => {
+    const index = connections.findIndex((conn) => conn.id === socket.id);
+    if (index !== -1) {
+      connections.splice(index, 1);
+      io.emit("update-users", connections); // Emit updated list
     }
   });
 
-  // Handle user disconnection
+  // Handle disconnection
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
-    users = users.filter((user) => user.id !== socket.id); // Remove the user
-    io.emit("update-users", users); // Broadcast the updated list
+    const index = connections.findIndex((conn) => conn.id === socket.id);
+    if (index !== -1) {
+      connections.splice(index, 1);
+      io.emit("update-users", connections); // Emit updated list
+    }
   });
 });
 
