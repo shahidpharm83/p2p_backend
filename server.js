@@ -10,28 +10,29 @@ const io = new Server(server, {
   },
 });
 
-const connections = []; // Store connected users who are sharing their internet
+// Store connected users
+const connections = [];
 
+// Handle new connections
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Handle share-internet event
+  // Handle 'share-internet' event
   socket.on("share-internet", (data) => {
-    console.log(`Received 'share-internet' event from ${socket.id}`);
-    console.log("Data received:", data);
+    console.log(`Received 'share-internet' from ${socket.id}`);
 
     const existingConnection = connections.find(
       (conn) => conn.id === socket.id
     );
     if (existingConnection) {
-      // If already sharing, update the existing connection
+      // Update existing connection details
       console.log(`Updating connection for user ${socket.id}`);
       existingConnection.location = data.location;
       existingConnection.speed = data.speed;
       existingConnection.uptime = data.uptime;
       existingConnection.connectionId = data.connectionId;
     } else {
-      // Otherwise, add a new connection
+      // Add new connection
       console.log(`Adding new connection for user ${socket.id}`);
       connections.push({
         id: socket.id,
@@ -42,32 +43,39 @@ io.on("connection", (socket) => {
       });
     }
 
-    // Emit the updated list of available connections to all clients
-    console.log("Emitting updated connections list:", connections);
+    // Emit updated connections list
     io.emit("update-users", connections);
   });
 
-  // Handle stop-sharing event
+  // Handle 'stop-sharing' event
   socket.on("stop-sharing", () => {
-    console.log(`Received 'stop-sharing' event from ${socket.id}`);
+    console.log(`Received 'stop-sharing' from ${socket.id}`);
+
+    // Find and remove the connection for this user
     const index = connections.findIndex((conn) => conn.id === socket.id);
     if (index !== -1) {
       console.log(`Removing connection for user ${socket.id}`);
       connections.splice(index, 1);
-      io.emit("update-users", connections); // Emit updated list
-      console.log("Emitting updated connections list:", connections);
+      io.emit("update-users", connections); // Emit updated connections list
     }
   });
 
-  // Handle disconnection
+  // Handle 'get-users' event for requesting available users
+  socket.on("get-users", () => {
+    console.log(`Received 'get-users' request from ${socket.id}`);
+    socket.emit("update-users", connections); // Emit the list of current available connections
+  });
+
+  // Handle user disconnection
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
+
+    // Remove connection data for disconnected user
     const index = connections.findIndex((conn) => conn.id === socket.id);
     if (index !== -1) {
       console.log(`Removing connection for user ${socket.id}`);
       connections.splice(index, 1);
-      io.emit("update-users", connections); // Emit updated list
-      console.log("Emitting updated connections list:", connections);
+      io.emit("update-users", connections); // Emit updated connections list
     }
   });
 });
