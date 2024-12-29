@@ -17,17 +17,22 @@ io.on("connection", (socket) => {
 
   // Handle share-internet event
   socket.on("share-internet", (data) => {
+    console.log(`Received 'share-internet' event from ${socket.id}`);
+    console.log("Data received:", data);
+
     const existingConnection = connections.find(
       (conn) => conn.id === socket.id
     );
     if (existingConnection) {
       // If already sharing, update the existing connection
+      console.log(`Updating connection for user ${socket.id}`);
       existingConnection.location = data.location;
       existingConnection.speed = data.speed;
       existingConnection.uptime = data.uptime;
       existingConnection.connectionId = data.connectionId;
     } else {
       // Otherwise, add a new connection
+      console.log(`Adding new connection for user ${socket.id}`);
       connections.push({
         id: socket.id,
         location: data.location,
@@ -38,15 +43,19 @@ io.on("connection", (socket) => {
     }
 
     // Emit the updated list of available connections to all clients
+    console.log("Emitting updated connections list:", connections);
     io.emit("update-users", connections);
   });
 
   // Handle stop-sharing event
   socket.on("stop-sharing", () => {
+    console.log(`Received 'stop-sharing' event from ${socket.id}`);
     const index = connections.findIndex((conn) => conn.id === socket.id);
     if (index !== -1) {
+      console.log(`Removing connection for user ${socket.id}`);
       connections.splice(index, 1);
       io.emit("update-users", connections); // Emit updated list
+      console.log("Emitting updated connections list:", connections);
     }
   });
 
@@ -55,8 +64,10 @@ io.on("connection", (socket) => {
     console.log(`User disconnected: ${socket.id}`);
     const index = connections.findIndex((conn) => conn.id === socket.id);
     if (index !== -1) {
+      console.log(`Removing connection for user ${socket.id}`);
       connections.splice(index, 1);
       io.emit("update-users", connections); // Emit updated list
+      console.log("Emitting updated connections list:", connections);
     }
   });
 });
