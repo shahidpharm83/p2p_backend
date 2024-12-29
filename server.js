@@ -1,63 +1,48 @@
 const express = require("express");
 const http = require("http");
-const socketIo = require("socket.io");
-const os = require("os");
+const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Allow all origins for simplicity
+  },
+});
 
-let connectedUsers = []; // Store connected users
+let users = []; // Store connected users
 
-// Function to get local IP address
-function getLocalIP() {
-  const networkInterfaces = os.networkInterfaces();
-  let ipAddress = "Unknown";
-  for (const interfaceName in networkInterfaces) {
-    networkInterfaces[interfaceName].forEach((network) => {
-      if (network.family === "IPv4" && !network.internal) {
-        ipAddress = network.address;
-      }
-    });
-  }
-  return ipAddress;
-}
-
-// Handle user connection
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log(`User connected: ${socket.id}`);
 
-  // Register new user
-  socket.on("register", (data) => {
-    const user = {
-      id: socket.id,
-      ip: getLocalIP(),
-      location: data.location, // Example: {lat: x, lng: y}
-      macAddress: data.macAddress,
-      speed: data.speed,
-      uptime: new Date(),
-    };
-    connectedUsers.push(user);
-    console.log(`User ${socket.id} registered:`, user);
+  // Handle "share-internet" event to add users
+  socket.on("share-internet", (userDetails) => {
+    userDetails.id = socket.id; // Add unique socket ID to the user
+    users.push(userDetails); // Add user to the list
+    io.emit("update-users", users); // Broadcast the updated list
+    console.log("Updated Users:", users);
+  });
 
-    io.emit("update-users", connectedUsers); // Update all clients with connected users
+  // Handle connection requests
+  socket.on("connect-to-peer", (peerId) => {
+    const peer = users.find((user) => user.id === peerId);
+    if (peer) {
+      // Notify both peers of the connection
+      io.to(peerId).emit("peer-connected", { peerId: socket.id });
+      socket.emit("peer-connected", { peerId: peerId });
+    }
   });
 
   // Handle user disconnection
   socket.on("disconnect", () => {
-    connectedUsers = connectedUsers.filter((user) => user.id !== socket.id);
-    console.log("User disconnected:", socket.id);
-    io.emit("update-users", connectedUsers); // Update clients after disconnection
-  });
-
-  // Handle internet sharing status updates
-  socket.on("share-internet", (data) => {
-    io.emit("internet-shared", data); // Broadcast sharing status to other clients
+    console.log(`User disconnected: ${socket.id}`);
+    users = users.filter((user) => user.id !== socket.id); // Remove the user
+    io.emit("update-users", users); // Broadcast the updated list
   });
 });
 
 // Start the server
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
