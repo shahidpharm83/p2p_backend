@@ -1,81 +1,63 @@
-require("dotenv").config(); // Load environment variables
 const express = require("express");
 const http = require("http");
-const { Server } = require("socket.io");
-const cors = require("cors");
-
-// Load environment variables
-const PORT = process.env.PORT || 3000;
+const socketIo = require("socket.io");
+const os = require("os");
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-
-// Create HTTP server
 const server = http.createServer(app);
+const io = socketIo(server);
 
-// Set up WebSocket server with Socket.IO
-const io = new Server(server, {
-  cors: {
-    origin: "*", // Allow all origins for simplicity; restrict in production
-    methods: ["GET", "POST"],
-  },
-});
+let connectedUsers = []; // Store connected users
 
-// Store connected clients
-let connectedPeers = {};
+// Function to get local IP address
+function getLocalIP() {
+  const networkInterfaces = os.networkInterfaces();
+  let ipAddress = "Unknown";
+  for (const interfaceName in networkInterfaces) {
+    networkInterfaces[interfaceName].forEach((network) => {
+      if (network.family === "IPv4" && !network.internal) {
+        ipAddress = network.address;
+      }
+    });
+  }
+  return ipAddress;
+}
 
-// WebSocket connection event
+// Handle user connection
 io.on("connection", (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+  console.log("User connected:", socket.id);
 
-  // Handle peer offer (SDP) from a client
-  socket.on("offer", (data) => {
-    const { to, from, offer } = data;
-    if (connectedPeers[to]) {
-      io.to(to).emit("offer", { from, offer });
-    }
-  });
+  // Register new user
+  socket.on("register", (data) => {
+    const user = {
+      id: socket.id,
+      ip: getLocalIP(),
+      location: data.location, // Example: {lat: x, lng: y}
+      macAddress: data.macAddress,
+      speed: data.speed,
+      uptime: new Date(),
+    };
+    connectedUsers.push(user);
+    console.log(`User ${socket.id} registered:`, user);
 
-  // Handle peer answer (SDP)
-  socket.on("answer", (data) => {
-    const { to, from, answer } = data;
-    if (connectedPeers[to]) {
-      io.to(to).emit("answer", { from, answer });
-    }
-  });
-
-  // Handle ICE candidate exchange
-  socket.on("ice-candidate", (data) => {
-    const { to, from, candidate } = data;
-    if (connectedPeers[to]) {
-      io.to(to).emit("ice-candidate", { from, candidate });
-    }
-  });
-
-  // Handle user joining a room (identifies peers)
-  socket.on("register", (peerId) => {
-    connectedPeers[peerId] = socket.id;
-    console.log(`Peer registered: ${peerId}`);
+    io.emit("update-users", connectedUsers); // Update all clients with connected users
   });
 
   // Handle user disconnection
   socket.on("disconnect", () => {
-    console.log(`Client disconnected: ${socket.id}`);
-    for (const peerId in connectedPeers) {
-      if (connectedPeers[peerId] === socket.id) {
-        delete connectedPeers[peerId];
-      }
-    }
+    connectedUsers = connectedUsers.filter((user) => user.id !== socket.id);
+    console.log("User disconnected:", socket.id);
+    io.emit("update-users", connectedUsers); // Update clients after disconnection
+  });
+
+  // Handle internet sharing status updates
+  socket.on("share-internet", (data) => {
+    io.emit("internet-shared", data); // Broadcast sharing status to other clients
   });
 });
 
-// HTTP route to check server health
-app.get("/", (req, res) => {
-  res.send("WebRTC Signaling Server is running!");
-});
-
 // Start the server
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
