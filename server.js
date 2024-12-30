@@ -1,6 +1,7 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const httpProxy = require("http-proxy");
 
 const app = express();
 const server = http.createServer(app);
@@ -13,20 +14,21 @@ const io = new Server(server, {
 // Store connected users
 const connections = [];
 
-const httpProxy = require("http-proxy");
-
+// Create the proxy server
 const proxy = httpProxy.createProxyServer({});
+
+// Use proxy to forward all requests to an external server (like Google)
 app.use((req, res) => {
   proxy.web(req, res, { target: "https://www.google.com" }); // Replace with any destination
 });
 
-// Handle new connections
+// Handle new socket connections
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
   // Handle 'share-internet' event
   socket.on("share-internet", (data) => {
-    console.log(`Received 'share-internet' from ${socket.id}`);
+    console.log("Received 'share-internet' event with data:", data);
 
     const existingConnection = connections.find(
       (conn) => conn.id === socket.id
@@ -48,42 +50,9 @@ io.on("connection", (socket) => {
         uptime: data.uptime,
         connectionId: data.connectionId,
       });
-      console.log(
-        `New Connection ID: ${data.connectionId} with speed: ${data.speed} from ${data.location.longitude} and ${data.location.latitude}`
-      );
     }
 
-    // Emit updated connections list
-    io.emit("update-users", connections);
-    console.log(
-      `Connection details: ${connections.location}, ${connections.speed}, ${connections.uptime}, ${connections.connectionId}`
-    );
-  });
-  socket.on("share-internet", (data) => {
-    console.log("Received share-internet event with data:", data);
-
-    // Update or create connection based on received data
-    const existingConnection = connections.find(
-      (conn) => conn.id === socket.id
-    );
-    if (existingConnection) {
-      console.log(`Updating connection for user ${socket.id}`);
-      existingConnection.location = data.location;
-      existingConnection.speed = data.speed;
-      existingConnection.uptime = data.uptime;
-      existingConnection.connectionId = data.connectionId;
-    } else {
-      console.log(`Adding new connection for user ${socket.id}`);
-      connections.push({
-        id: socket.id,
-        location: data.location,
-        speed: data.speed,
-        uptime: data.uptime,
-        connectionId: data.connectionId,
-      });
-    }
-
-    // Emit updated connections list
+    // Emit updated connections list to all connected clients
     io.emit("update-users", connections);
   });
 
@@ -100,17 +69,17 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle 'get-users' event for requesting available users
+  // Handle 'get-users' event to request available users
   socket.on("get-users", () => {
     console.log(`Received 'get-users' request from ${socket.id}`);
     socket.emit("update-users", connections); // Emit the list of current available connections
   });
 
-  // Handle 'connect-to-peer' event
+  // Handle 'connect-to-peer' event to initiate connection with a peer
   socket.on("connect-to-peer", (peerId) => {
     console.log(`Received 'connect-to-peer' request with peerId: ${peerId}`);
 
-    // Validate peerId (add your custom validation logic)
+    // Validate peerId (you can add custom validation logic here)
     if (peerId && peerId !== "") {
       console.log(`Connecting to peer: ${peerId}`);
 
@@ -121,6 +90,7 @@ io.on("connection", (socket) => {
       socket.emit("connect-error", "Invalid peer ID");
     }
   });
+
   // Handle user disconnection
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
@@ -135,5 +105,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// Start the server
-
+// Start the server on port 3000
+server.listen(3000, () => {
+  console.log("Server running on port 3000");
+});
