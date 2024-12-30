@@ -41,12 +41,43 @@ io.on("connection", (socket) => {
         uptime: data.uptime,
         connectionId: data.connectionId,
       });
-      console.log(`New Connection ID: ${data.connectionId} with speed: ${data.speed} from ${data.location.longitude} and ${data.location.latitude}`);
+      console.log(
+        `New Connection ID: ${data.connectionId} with speed: ${data.speed} from ${data.location.longitude} and ${data.location.latitude}`
+      );
     }
 
     // Emit updated connections list
     io.emit("update-users", connections);
-    console.log(`Connection details: ${connections.location}, ${connections.speed}, ${connections.uptime}, ${connections.connectionId}`);
+    console.log(
+      `Connection details: ${connections.location}, ${connections.speed}, ${connections.uptime}, ${connections.connectionId}`
+    );
+  });
+  socket.on("share-internet", (data) => {
+    console.log("Received share-internet event with data:", data);
+
+    // Update or create connection based on received data
+    const existingConnection = connections.find(
+      (conn) => conn.id === socket.id
+    );
+    if (existingConnection) {
+      console.log(`Updating connection for user ${socket.id}`);
+      existingConnection.location = data.location;
+      existingConnection.speed = data.speed;
+      existingConnection.uptime = data.uptime;
+      existingConnection.connectionId = data.connectionId;
+    } else {
+      console.log(`Adding new connection for user ${socket.id}`);
+      connections.push({
+        id: socket.id,
+        location: data.location,
+        speed: data.speed,
+        uptime: data.uptime,
+        connectionId: data.connectionId,
+      });
+    }
+
+    // Emit updated connections list
+    io.emit("update-users", connections);
   });
 
   // Handle 'stop-sharing' event
@@ -68,6 +99,25 @@ io.on("connection", (socket) => {
     socket.emit("update-users", connections); // Emit the list of current available connections
   });
 
+  // Handle 'connect-to-peer' event
+  socket.on("connect-to-peer", (peerId) => {
+    console.log(`Received 'connect-to-peer' request with peerId: ${peerId}`);
+
+    // Validate peerId (add your custom validation logic)
+    if (peerId && peerId !== "") {
+      // Simulate a successful connection
+      console.log(`Connecting to peer: ${peerId}`);
+
+      // Emit a successful connection response back to the client
+      socket.emit("peer-connected", { peerId: peerId });
+
+      // Optionally, you can broadcast this event to other peers or clients
+      io.emit("peer-connected", { peerId: peerId });
+    } else {
+      // Emit an error event if peerId is invalid
+      socket.emit("connect-error", "Invalid peer ID");
+    }
+  });
   // Handle user disconnection
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
