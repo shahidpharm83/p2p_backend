@@ -13,6 +13,13 @@ const io = new Server(server, {
 // Store connected users
 const connections = [];
 
+const httpProxy = require("http-proxy");
+
+const proxy = httpProxy.createProxyServer({});
+app.use((req, res) => {
+  proxy.web(req, res, { target: "https://google.com" }); // Replace with any destination
+});
+
 // Handle new connections
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -129,7 +136,4 @@ io.on("connection", (socket) => {
 });
 
 // Start the server
-const PORT = 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+
