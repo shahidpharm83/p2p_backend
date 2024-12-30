@@ -17,9 +17,17 @@ const connections = [];
 // Create the proxy server
 const proxy = httpProxy.createProxyServer({});
 
-// Use proxy to forward all requests to an external server (like Google)
+// Use proxy to forward all requests to a dynamic target
 app.use((req, res) => {
-  proxy.web(req, res, { target: "https://www.google.com" }); // Replace with any destination
+  const targetUrl = req.headers["target-url"]; // Expect target URL to be passed in headers
+
+  // Check if a valid target URL was provided
+  if (targetUrl && targetUrl.startsWith("http")) {
+    console.log(`Proxying request to: ${targetUrl}`);
+    proxy.web(req, res, { target: targetUrl }); // Forward the request to the target URL
+  } else {
+    res.status(400).send("Missing or invalid target URL in headers.");
+  }
 });
 
 // Handle new socket connections
