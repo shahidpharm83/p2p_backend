@@ -105,14 +105,10 @@ io.on("connection", (socket) => {
 
     // Validate peerId (add your custom validation logic)
     if (peerId && peerId !== "") {
-      // Simulate a successful connection
       console.log(`Connecting to peer: ${peerId}`);
 
       // Emit a successful connection response back to the client
       socket.emit("peer-connected", { peerId: peerId });
-
-      // Optionally, you can broadcast this event to other peers or clients
-      io.emit("peer-connected", { peerId: peerId });
     } else {
       // Emit an error event if peerId is invalid
       socket.emit("connect-error", "Invalid peer ID");
