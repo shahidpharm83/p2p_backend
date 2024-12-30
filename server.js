@@ -41,12 +41,12 @@ io.on("connection", (socket) => {
         uptime: data.uptime,
         connectionId: data.connectionId,
       });
-      console.log(`New Connection ID: ${data.connectionId} with speed: ${data.speed} from ${data.location}`);
+      console.log(`New Connection ID: ${data.connectionId} with speed: ${data.speed} from ${data.location.longitude} and ${data.location.latitude}`);
     }
 
     // Emit updated connections list
     io.emit("update-users", connections);
-    console.log(`Connection details: ${connections}`);
+    console.log(`Connection details: ${connections.location}, ${connections.speed}, ${connections.uptime}, ${connections.connectionId}`);
   });
 
   // Handle 'stop-sharing' event
