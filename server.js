@@ -17,7 +17,7 @@ const httpProxy = require("http-proxy");
 
 const proxy = httpProxy.createProxyServer({});
 app.use((req, res) => {
-  proxy.web(req, res, { target: "https://google.com" }); // Replace with any destination
+  proxy.web(req, res, { target: "https://www.google.com" }); // Replace with any destination
 });
 
 // Handle new connections
